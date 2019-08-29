@@ -33,3 +33,5 @@
 /yarn-error.log
 yarn-debug.log*
 .yarn-integrity
+/app/assets/javascript/bundle.js
+/app/assets/javascript/bundle.js.map
