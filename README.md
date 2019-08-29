@@ -135,14 +135,143 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 ```
 
-y creamos en el proyecto un archivo llamado `webpack.config.js`:
+y creamos los componentes en React, en el archivo `ChatRoom.js`:
+```jsx
+import React from "react";
+import MessageForm from "./MessageForm.js";
+
+class ChatRoom extends React.Component {
+  constructor(props) {
+    super(props);
+
+    this.state = {
+      messages: []
+    };
+
+    this.bottom = React.createRef();
+  }
+
+  componentDidMount() {
+    App.cable.subscriptions.create(
+      { channel: "ChatChannel" },
+      {
+        received: data => {
+          switch (data.type) {
+            case "message":
+              this.setState({
+                messages: this.state.messages.concat(data.message)
+              });
+              break;
+            case "messages":
+              this.setState({
+                messages: data.messages
+              });
+              break;
+          }
+        },
+        speak: function(data) {
+          return this.perform("speak", data);
+        },
+        load: function() {
+          return this.perform("load");
+        }
+      }
+    );
+  }
+
+  loadChat(e) {
+    e.preventDefault();
+    App.cable.subscriptions.subscriptions[0].load();
+  }
+
+  componentDidUpdate() {
+    this.bottom.current.scrollIntoView();
+  }
+
+  render() {
+    const messageList = this.state.messages.map(message => {
+      return (
+        <li key={message.id}>
+          {message}
+          <div ref={this.bottom} />
+        </li>
+      );
+    });
+
+    return (
+      <div className="chatroom-container">
+        <div>ChatRoom</div>
+        <button className="load-button" onClick={this.loadChat.bind(this)}>
+          Load Chat History
+        </button>
+        <div className="message-list">{messageList}</div>
+        <MessageForm />
+      </div>
+    );
+  }
+}
+
+export default ChatRoom;
+```
+y creamos el componente del mensaje individual:
+```jsx
+import React from "react";
+
+class MessageForm extends React.Component {
+  constructor(props) {
+    super(props);
+
+    this.state = {
+      body: ""
+    };
+  }
+
+  update(field) {
+    return e =>
+      this.setState({
+        [field]: e.currentTarget.value
+      });
+  }
+
+  handleSubmit(e) {
+    e.preventDefault();
+    App.cable.subscriptions.subscriptions[0].speak({
+      message: this.state.body
+    });
+    this.setState({
+      body: ""
+    });
+  }
+
+  render() {
+    return (
+      <div>
+        <form onSubmit={this.handleSubmit.bind(this)}>
+          <input
+            type="text"
+            value={this.state.body}
+            onChange={this.update("body")}
+            placeholder="Type message here"
+          />
+          <input type="submit" />
+        </form>
+      </div>
+    );
+  }
+}
+
+export default MessageForm;
+```
+
+
+y creamos en el proyecto un archivo llamado `webpack.config.js`, este posee los datos de la compilacion de webpack en donde este generara un `bundle.js` que poseera todos los demas js para cargar rapido:
 ```js
 const path = require("path");
 
 module.exports = {
   entry: path.join(__dirname, "frontend", "index.js"),
   output: {
-    path: path.join(__dirname, "app", "assets", "javascripts"),
+    path: path.join(__dirname, "app", "assets", "javascript"),
     filename: "bundle.js"
   },
   resolve: {
@@ -165,23 +294,28 @@ module.exports = {
 };
 ```
 
-## errores:
-agregamos cofescript aunque no es indispensable
+y corremos:
+```
+yarn  webpack --mode=development
+```
+
+### Errores:
+Agregamos coffeescript aunque no es indispensable
 ```
 gem 'coffee-rails'
 ```
 
-los js de frontend si se quedan asi
+Los js de frontend si se quedan asi
 las principales diferencias son en los JS, no hay problemas con ruby
 
-en la carpeta `app/javascript/packs` van los archivos que usan para react
+En la carpeta `app/javascript/packs` van los archivos que instala la gema de rails, pueden eliminarse libremente
 
-en viewas sustituir la llamada de los javascripts con :
+En views sustituir la llamada de los javascripts con :
 ```
 <%= javascript_include_tag 'application', 'data-turbolinks-track': 'reload' %>
 ```
 
-el archivo `app/channels/chat_channel.rb` es modificado:
+El archivo `app/channels/chat_channel.rb` es modificado:
 ```ruby
 class ChatChannel < ApplicationCable::Channel
   def subscribed
@@ -214,9 +348,34 @@ class ChatChannel < ApplicationCable::Channel
 end
 
 ```
-Y no se si estos archivos en la carpeta `app/assets/javascripts` debian ser producidos por rails o si el los produjo, mi maquina produjo unos archivos totalmente diferentes, los copie del repositorio original asi que aun hay que analizarlos
+En `app/assets/javascripts` debe ir un archivo para manejar el cable, `chat.js`, este debe generarlo rails pero ahora ya lo maneja de manera distinta asi que lo creamos individualmente:
+```js
 
-se agregan los css al `assets/stylesheets/messagess.scss` y esto le da tooda la presentacion al chat:
+// Action Cable provides the framework to deal with WebSockets in Rails.
+// You can generate new channels where WebSocket features live using the `rails generate channel` command.
+//
+//= require action_cable
+//= require_self
+
+
+(function() {
+  this.App || (this.App = {});
+
+  App.cable = ActionCable.createConsumer();
+
+}).call(this);
+
+````
+
+Si hay errores en la llamada de carpetas eliminamos esta lineaen el `Chat.js`:
+```
+//= require_tree ./channels
+```
+Si dejamos los archivos por default que genera Rails 6 no pasa nada pero sin esa llamada simplemene al archivo chat.js simplemente no corre
+
+El contenido de la carpeta `assets/javascript` no es necesario,quiza solo el index pero no es importante
+
+Se agregan los css al `assets/stylesheets/messagess.scss` y esto le da tooda la presentacion al chat:
 ```css
 
 * {
@@ -251,7 +410,6 @@ li {
 tambien instalamos paquetes por si acaso.
 
 ```
-yarn add react-dom react-on-rails
 yarn add --dev webpack-dev-server 
 yarn add react-dom react-on-rails
 yarn add webpack-cli -D
@@ -261,3 +419,5 @@ si hay problemas por ejecutar con sudo cambiamos los propietarios con:
 ```
 sudo chown -R oka package.json 
 ```
+
+https://medium.com/@benpong89/action-cable-and-react-9a00be5e391b
