@@ -420,4 +420,4 @@ si hay problemas por ejecutar con sudo cambiamos los propietarios con:
 sudo chown -R oka package.json 
 ```
 
-https://medium.com/@benpong89/action-cable-and-react-9a00be5e391b
+action-cable-and-react-9a00be5e391b
